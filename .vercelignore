@@ -1,0 +1,17 @@
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Local env files (handled in Vercel dashboard)
+.env
+.env.*.local
+
+# Build caches
+.next/cache
+*.tsbuildinfo
+
+# Editors & OS
+.vscode
+.idea
+.DS_Store
