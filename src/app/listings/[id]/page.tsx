@@ -12,8 +12,6 @@ import { sanityClient } from "@/lib/sanity.client";
 import ImageGallery from "@/components/ImageGallery";
 import NavButton from "@/components/NavButton";
 
-type Props = { params: { id: string } };
-
 export const revalidate = 60;
 
 const query = `*[_type == "property" && _id == $id][0]{
@@ -48,8 +46,10 @@ function buildMapsUrl(coords?: { lat?: number; lng?: number } | null, locationSt
   return null;
 }
 
-export default async function PropertyPage({ params }: Props) {
-  const id = params?.id;
+// Use props: any to avoid strict PageProps typing issues during build
+export default async function PropertyPage(props: any) {
+  const params = props?.params as { id?: string } | undefined;
+  const id = params?.id ?? "";
   let property: any = null;
 
   try {
