@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Your Firm — Premium Real Estate",
+  title: "ARK Infra — Premium Real Estate",
   description: "Curated apartments, villas, and commercial spaces",
 };
 
