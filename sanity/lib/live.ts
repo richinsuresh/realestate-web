@@ -1,31 +1,20 @@
 // sanity/lib/live.ts
-"use client";
+'use client'
 
-import React, { ReactNode } from "react";
-import * as NextSanity from "next-sanity";
-import { client } from "./client";
+import React, { ReactNode, FC } from 'react'
 
-type SanityFetchFn = (query: string, params?: Record<string, any>) => Promise<any>;
-type SanityLiveComponent = React.FC<{ children?: ReactNode }>;
+/**
+ * Lightweight runtime-safe sanity helpers.
+ * Dynamic import of './client' avoids pulling client into config-time code.
+ * Use React.createElement instead of JSX so this can remain a .ts file.
+ */
 
-const NextSanityAny = NextSanity as any;
-
-let sanityFetch: SanityFetchFn;
-let SanityLive: SanityLiveComponent;
-
-if (typeof NextSanityAny.defineLive === "function") {
-  const res = NextSanityAny.defineLive({ client }) as any;
-  sanityFetch = res.sanityFetch;
-  SanityLive = res.SanityLive;
-} else {
-  sanityFetch = async (query: string, params?: Record<string, any>) => {
-    return client.fetch(query, params);
-  };
-
-  // 👇 Properly type the props so TS understands `children`
-  SanityLive = ({ children }: { children?: ReactNode }) => {
-    return <>{children ?? null}</>;
-  };
+export const sanityFetch = async <T = any>(query: string, params?: any): Promise<T> => {
+  const { client } = await import('./client')
+  return client.fetch<T>(query, params as any)
 }
 
-export { sanityFetch, SanityLive };
+export const SanityLive: FC<{ children?: ReactNode }> = ({ children }) => {
+  // use createElement to avoid JSX in .ts file
+  return React.createElement(React.Fragment, null, children ?? null)
+}
