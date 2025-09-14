@@ -1,21 +1,8 @@
 // ./sanity/sanity.config.ts
-// ./sanity/sanity.config.ts — top imports
 import { defineConfig } from "sanity";
 import { deskTool } from "sanity/desk";
 import { visionTool } from "@sanity/vision";
-import { schemaTypes } from "./schemaTypes"; // <-- named import (preferred)
-
-// Import the schema module in a defensive way so we avoid "already declared" errors
-// whether schemaTypes is a named export, default export, or exported inside an object.
-import * as schemaModule from "./schemaTypes";
-
-const schemaTypes =
-  // prefer named export 'schemaTypes'
-  (schemaModule as any).schemaTypes ??
-  // fall back to default export (if any)
-  (schemaModule as any).default ??
-  // or the module itself (if it directly is an array)
-  (schemaModule as any);
+import { schemaTypes } from "./schemaTypes";
 
 export default defineConfig({
   name: "arkinfra",
