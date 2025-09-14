@@ -1,35 +1,24 @@
-// next.config.ts
-import type { NextConfig } from "next";
+// next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true, // recommended for catching issues
 
-/**
- * Quick unblock config:
- * - ignoreDuringBuilds: true => ESLint warnings/errors won't fail the build
- * - typescript.ignoreBuildErrors: true => Type errors won't fail the build
- *
- * These are build-time relaxations only. Fix lint/types properly later.
- */
-
-const nextConfig: NextConfig = {
-  reactStrictMode: true,
   images: {
+    // Allow Sanity's image CDN
     remotePatterns: [
       {
         protocol: "https",
         hostname: "cdn.sanity.io",
         port: "",
-        pathname: "/**",
+        pathname: "/images/**",
       },
     ],
-    formats: ["image/avif", "image/webp"],
   },
 
-  // IMPORTANT: allow builds to succeed now; revert after you fix lint/type issues
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
+  experimental: {
+    // if you're using Next 13+ appDir (which you are)
+    appDir: true,
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
