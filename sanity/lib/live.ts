@@ -14,18 +14,17 @@ let sanityFetch: SanityFetchFn
 let SanityLive: SanityLiveComponent
 
 if (typeof NextSanityAny.defineLive === 'function') {
-  // use library defineLive if available
+  // Use library defineLive if available
   const res = NextSanityAny.defineLive({ client }) as any
   sanityFetch = res.sanityFetch
   SanityLive = res.SanityLive
 } else {
-  // fallback: use client.fetch and a passthrough component
+  // Fallback: use client.fetch and a passthrough component
   sanityFetch = async (query: string, params?: Record<string, any>) => {
     return client.fetch(query, params)
   }
 
   SanityLive = ({ children }: { children?: React.ReactNode }) => {
-    // correct nullish coalescing syntax
     return <>{children ?? null}</>
   }
 }
