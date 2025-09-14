@@ -2,6 +2,7 @@
 import { defineConfig } from "sanity";
 import { deskTool } from "sanity/desk";
 import { visionTool } from "@sanity/vision";
+import { schemaTypes } from "./schemaTypes";
 
 // adjust this path if your schemaTypes live somewhere else. Based on your screenshot:
 // schemaTypes are in the "sanity" folder at repo root -> ./sanity/schemaTypes
