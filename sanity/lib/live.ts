@@ -1,30 +1,31 @@
 // sanity/lib/live.ts
 import React from 'react'
-// Import namespace to avoid TS error if named exports differ by version
 import * as NextSanity from 'next-sanity'
 import { client } from './client'
 
-// Defensive defineLive: use library-provided defineLive if present, otherwise provide a fallback.
+// Minimal expected shape returned by defineLive
 type DefineLiveReturn = {
   sanityFetch: (query: string, params?: Record<string, any>) => Promise<any>
   SanityLive: React.ComponentType<{ children?: React.ReactNode }>
 }
 
-const libDefineLive = (NextSanity as any).defineLive
+// Try to use library's defineLive if it's available and is a function.
+// Otherwise provide a safe fallback implementation.
+const maybeDefineLive = (NextSanity as any).defineLive
 
-const defineLive = libDefineLive ?? function (_opts: any): DefineLiveReturn {
-  // Fallback implementation:
-  // - sanityFetch delegates to your client.fetch (no live/real-time updates)
-  // - SanityLive is a simple passthrough wrapper (no websockets / real-time)
-  return {
-    sanityFetch: async (query: string, params?: Record<string, any>) => {
-      return client.fetch(query, params)
-    },
-    SanityLive: ({ children }: { children?: React.ReactNode }) => {
-      return <>{children ?? null}</>
-    },
-  }
-}
+const defineLive: (opts?: any) => DefineLiveReturn =
+  typeof maybeDefineLive === 'function'
+    ? (maybeDefineLive as (opts?: any) => DefineLiveReturn)
+    : (_opts?: any) =>
+        ({
+          // delegate to the existing Sanity client fetch (no live updates)
+          sanityFetch: async (query: string, params?: Record<string, any>) => {
+            return client.fetch(query, params)
+          },
+          // passthrough component; renders children directly
+          SanityLive: ({ children }: { children?: React.ReactNode }) => {
+            return <>{children ?? null}</>
+          },
+        } as DefineLiveReturn)
 
-// Export the expected API shape for the rest of your app
 export const { sanityFetch, SanityLive } = defineLive({ client })
