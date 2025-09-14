@@ -1,30 +1,31 @@
 // sanity/lib/live.ts
-'use client'
+"use client";
 
-import React, { ReactNode } from 'react'
-import * as NextSanity from 'next-sanity'
-import { client } from './client'
+import React, { ReactNode } from "react";
+import * as NextSanity from "next-sanity";
+import { client } from "./client";
 
-type SanityFetchFn = (query: string, params?: Record<string, any>) => Promise<any>
-type SanityLiveComponent = React.FC<{ children?: ReactNode }>
+type SanityFetchFn = (query: string, params?: Record<string, any>) => Promise<any>;
+type SanityLiveComponent = React.FC<{ children?: ReactNode }>;
 
-const NextSanityAny = NextSanity as any
+const NextSanityAny = NextSanity as any;
 
-let sanityFetch: SanityFetchFn
-let SanityLive: SanityLiveComponent
+let sanityFetch: SanityFetchFn;
+let SanityLive: SanityLiveComponent;
 
-if (typeof NextSanityAny.defineLive === 'function') {
-  const res = NextSanityAny.defineLive({ client }) as any
-  sanityFetch = res.sanityFetch
-  SanityLive = res.SanityLive
+if (typeof NextSanityAny.defineLive === "function") {
+  const res = NextSanityAny.defineLive({ client }) as any;
+  sanityFetch = res.sanityFetch;
+  SanityLive = res.SanityLive;
 } else {
   sanityFetch = async (query: string, params?: Record<string, any>) => {
-    return client.fetch(query, params)
-  }
+    return client.fetch(query, params);
+  };
 
-  SanityLive = ({ children }) => {
-    return <>{children ?? null}</>
-  }
+  // 👇 Properly type the props so TS understands `children`
+  SanityLive = ({ children }: { children?: ReactNode }) => {
+    return <>{children ?? null}</>;
+  };
 }
 
-export { sanityFetch, SanityLive }
+export { sanityFetch, SanityLive };
