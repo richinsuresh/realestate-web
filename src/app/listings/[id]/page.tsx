@@ -46,7 +46,6 @@ function buildMapsUrl(coords?: { lat?: number; lng?: number } | null, locationSt
   return null;
 }
 
-// Use props: any to avoid strict PageProps typing issues during build
 export default async function PropertyPage(props: any) {
   const params = props?.params as { id?: string } | undefined;
   const id = params?.id ?? "";
@@ -68,7 +67,6 @@ export default async function PropertyPage(props: any) {
     );
   }
 
-  // Gallery items
   const galleryItems: { src: string; alt?: string; caption?: string }[] = [];
   if (property.mainImage?.asset?.url) {
     galleryItems.push({
@@ -144,7 +142,7 @@ export default async function PropertyPage(props: any) {
 
           {/* Main content */}
           <Flex direction={{ base: "column", md: "row" }} justify="space-between" gap={6}>
-            {/* LEFT: description + location + map */}
+            {/* LEFT */}
             <Box flex="1" minW={0}>
               <Text color="gray.700" fontSize="md" whiteSpace="pre-line" mb={3}>
                 {property.description ?? "No description provided."}
@@ -207,7 +205,7 @@ export default async function PropertyPage(props: any) {
               </Box>
             </Box>
 
-            {/* RIGHT (desktop): price + enquire */}
+            {/* RIGHT */}
             <Box
               width={{ base: "100%", md: "300px" }}
               display="flex"
@@ -242,6 +240,7 @@ export default async function PropertyPage(props: any) {
                     variant="solid"
                     colorScheme="teal"
                     size="lg"
+                    width="100%"
                   >
                     Enquire
                   </NavButton>
