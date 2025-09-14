@@ -1,20 +1,26 @@
-// sanity.config.ts  (location: ./sanity.config.ts)
+// ./sanity/sanity.config.ts
 import { defineConfig } from "sanity";
 import { deskTool } from "sanity/desk";
 import { visionTool } from "@sanity/vision";
-import { schemaTypes } from "./schemaTypes";
 
-// adjust this path if your schemaTypes live somewhere else. Based on your screenshot:
-// schemaTypes are in the "sanity" folder at repo root -> ./sanity/schemaTypes
-import { schemaTypes } from "./sanity/schemaTypes";
+// Import the schema module in a defensive way so we avoid "already declared" errors
+// whether schemaTypes is a named export, default export, or exported inside an object.
+import * as schemaModule from "./schemaTypes";
+
+const schemaTypes =
+  // prefer named export 'schemaTypes'
+  (schemaModule as any).schemaTypes ??
+  // fall back to default export (if any)
+  (schemaModule as any).default ??
+  // or the module itself (if it directly is an array)
+  (schemaModule as any);
 
 export default defineConfig({
   name: "arkinfra",
   title: "ARK Infra Studio",
 
-  // Read values from env vars so Vercel/local are consistent.
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "28d9tox0",
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "production",
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "development",
 
   plugins: [deskTool(), visionTool()],
 
@@ -23,7 +29,6 @@ export default defineConfig({
   },
 
   studio: {
-    // Keep Studio routes aligned when embedding under Next at /studio
     basePath: "/studio",
   },
 });
