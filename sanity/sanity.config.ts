@@ -10,7 +10,7 @@ const config = {
   title: "ARK Infra Studio",
 
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "28d9tox0",
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "Production",
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "production",
 
   // cast plugins to `any` to avoid cross-package @sanity/types incompatibilities
   plugins: [deskTool() as any, visionTool() as any] as any,

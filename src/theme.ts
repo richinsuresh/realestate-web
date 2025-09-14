@@ -1,5 +1,15 @@
-// src/theme.ts — simple fallback theme (no extendTheme call)
-const theme = {
+// src/theme.ts
+import { extendTheme, ThemeConfig } from "@chakra-ui/react";
+
+// Optional config (for color mode defaults, etc.)
+const config: ThemeConfig = {
+  initialColorMode: "light",
+  useSystemColorMode: false,
+};
+
+// Extend the default Chakra theme
+const theme = extendTheme({
+  config,
   colors: {
     brand: {
       50: "#f5f9ff",
@@ -14,10 +24,15 @@ const theme = {
   },
   styles: {
     global: {
-      "html, body, #__next": { height: "100%" },
-      body: { bg: "white", color: "gray.800" },
+      "html, body, #__next": {
+        height: "100%",
+      },
+      body: {
+        bg: "white",
+        color: "gray.800",
+      },
     },
   },
-};
+});
 
 export default theme;

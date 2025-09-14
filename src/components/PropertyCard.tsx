@@ -10,26 +10,61 @@ import {
   Button,
   AspectRatio,
   Link as ChakraLink,
+  HStack,
 } from "@chakra-ui/react";
 import ImageWithSkeleton from "@/components/ImageWithSkeleton";
 
-type PropertyCardProps = {
+export type Property = {
   id: string;
-  title: string;
+  title?: string;
+  tagline?: string;
+  price?: number | null;
+  location?: string | null;
+  imageUrl?: string | null;
+  images?: string[] | null;
+  type?: string | null;      // e.g. Apartment, Villa
+  bedrooms?: number | null;  // number of bedrooms
+};
+
+type IndividualProps = {
+  id?: string;
+  title?: string;
   tagline?: string;
   price?: number;
   location?: string;
   imageUrl?: string;
+  type?: string;
+  bedrooms?: number;
 };
 
-export default function PropertyCard({
-  id,
-  title,
-  tagline,
-  price,
-  location,
-  imageUrl,
-}: PropertyCardProps) {
+type Props = {
+  property?: Property;
+} & IndividualProps;
+
+/**
+ * PropertyCard: displays a real estate property card.
+ * Works with both `property={...}` or individual props.
+ */
+export default function PropertyCard(props: Props) {
+  const { property } = props;
+
+  // Prefer `property.*` if passed, otherwise fall back to individual props
+  const id = property?.id ?? props.id ?? "";
+  const title = property?.title ?? props.title ?? "Untitled property";
+  const tagline = property?.tagline ?? props.tagline;
+  const price = property?.price ?? props.price;
+  const location = property?.location ?? props.location;
+  const type = property?.type ?? props.type;
+  const bedrooms = property?.bedrooms ?? props.bedrooms;
+
+  // Image selection (main image or fallback)
+  const imageUrl =
+    property?.imageUrl ||
+    (Array.isArray(property?.images) && property.images.length > 0
+      ? property.images[0]
+      : props.imageUrl) ||
+    "/placeholder.jpg";
+
   return (
     <Box
       borderWidth="1px"
@@ -40,11 +75,11 @@ export default function PropertyCard({
       transition="all 0.2s"
       bg="white"
     >
-      {/* stable aspect area so image is always visible on mobile */}
+      {/* Image */}
       <AspectRatio ratio={4 / 3}>
         <Box position="relative" width="100%" height="100%" bg="gray.100">
           <ImageWithSkeleton
-            src={imageUrl ?? "/placeholder.jpg"}
+            src={imageUrl}
             alt={title ?? "Property image"}
             fill
             sizes="(max-width: 480px) 100vw, (max-width: 768px) 50vw, 33vw"
@@ -53,26 +88,36 @@ export default function PropertyCard({
         </Box>
       </AspectRatio>
 
+      {/* Content */}
       <Box p={5}>
         <Stack spacing={3}>
+          {/* Title */}
           <Heading size="md" noOfLines={2}>
             {title}
           </Heading>
 
+          {/* Tagline */}
           <Text color="gray.600" fontSize="sm" noOfLines={2}>
             {tagline ?? "No tagline available"}
           </Text>
 
-          <Text fontWeight="bold" fontSize="md">
-            {typeof price === "number" ? `₹${price.toLocaleString("en-IN")}` : "—"}
+          {/* Price */}
+          <Text fontWeight="bold" fontSize="lg" color="black">
+            {typeof price === "number"
+              ? `₹${price.toLocaleString("en-IN")}`
+              : "Price on request"}
           </Text>
 
-          {location && (
-            <Text color="gray.500" fontSize="sm">
-              {location}
-            </Text>
-          )}
+          {/* Location / Type / Bedrooms */}
+          <Stack spacing={1} fontSize="sm" color="gray.600">
+            {location && <Text>{location}</Text>}
+            <HStack spacing={2}>
+              {type && <Text>{type}</Text>}
+              {bedrooms ? <Text>{bedrooms} BHK</Text> : null}
+            </HStack>
+          </Stack>
 
+          {/* CTA */}
           <NextLink href={`/listings/${id}`} passHref legacyBehavior>
             <ChakraLink width="100%" aria-label={`View ${title}`}>
               <Button colorScheme="teal" width="100%">

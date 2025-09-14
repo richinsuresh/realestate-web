@@ -7,12 +7,10 @@ import { Box, Flex, HStack, Button, Image } from "@chakra-ui/react";
 import MobileMenu from "./MobileMenu";
 
 export default function Navbar() {
-  function openCallbackModal() {
-    // dispatch a global event the Footer listens for
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("open-callback-modal"));
-    }
-  }
+  const openCallback = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    window.dispatchEvent(new CustomEvent("openCallbackDialog"));
+  };
 
   return (
     <Box
@@ -29,7 +27,7 @@ export default function Navbar() {
       <Flex maxW="1100px" mx="auto" align="center" justify="space-between">
         {/* Logo → home link */}
         <Link href="/" style={{ display: "flex", alignItems: "center" }}>
-          <Image src="/logo.png" alt="ARK Infra Logo" height="40px" width="auto" mr={2} />
+          <Image src="/logo.png" alt="Your Firm Logo" height="40px" width="auto" mr={2} />
         </Link>
 
         {/* Desktop nav */}
@@ -40,9 +38,9 @@ export default function Navbar() {
         </HStack>
 
         <HStack spacing={3}>
-          {/* CTA: dispatches an event to open the footer modal */}
+          {/* CTA: open modal instead of navigating */}
           <Button
-            onClick={openCallbackModal}
+            onClick={openCallback}
             colorScheme="brand"
             size="sm"
             _hover={{ bg: "blue.500" }}

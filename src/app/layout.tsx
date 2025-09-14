@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Providers } from "./providers";
+import CallbackDialog from "@/components/CallbackDialog"; // <-- add
 
 export const metadata: Metadata = {
   title: "ARK Infra — Premium Real Estate",
@@ -23,6 +24,8 @@ export default function RootLayout({
             <Navbar />
             <main className="content">{children}</main>
             <Footer />
+            {/* Mounted once at the app root so any component can open it via CustomEvent */}
+            <CallbackDialog />
           </div>
         </Providers>
       </body>
