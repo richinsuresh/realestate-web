@@ -3,10 +3,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-
-  // Allow external images (Sanity CDN)
   images: {
     remotePatterns: [
+      // ✅ Supabase storage bucket
+      {
+        protocol: "https",
+        hostname: "fbnsqlmvfizmahitrzci.supabase.co",
+        pathname: "/storage/**",
+      },
+      // ✅ Optional: keep if you still reference Sanity images
       {
         protocol: "https",
         hostname: "cdn.sanity.io",

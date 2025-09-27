@@ -62,13 +62,7 @@ function buildSupabasePublicUrl(keyOrUrl?: string | null) {
   const trimmed = keyOrUrl.trim();
   if (isAbsoluteOrLocal(trimmed)) return trimmed; // already usable
 
-  const bucket = (() => {
-       const _b = process.env.NEXT_PUBLIC_SUPABASE_BUCKET;
-       if (!_b) {
-         throw new Error("[config] Missing NEXT_PUBLIC_SUPABASE_BUCKET env. Add it to .env.local and restart.");
-       }
-       return _b;
-     })();
+  const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET ?? "property-photos";
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   if (!projectUrl) return trimmed; // fallback — but may break
 

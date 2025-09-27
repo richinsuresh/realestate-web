@@ -1,74 +1,119 @@
-// src/components/ImageGallery.tsx
 "use client";
 
-import React from "react";
-import NextLink from "next/link";
-import { Box, SimpleGrid, Text, AspectRatio } from "@chakra-ui/react";
-import ImageWithSkeleton from "@/components/ImageWithSkeleton";
+import { Box, SimpleGrid } from "@chakra-ui/react";
+import NextImage from "next/image";
+import { useState } from "react";
 
-type GalleryItem = {
-  src: string;
+const PLACEHOLDER = "/placeholder.jpg";
+
+/**
+ * Ensure only valid values go into NextImage.
+ * Valid:
+ *   - root-relative (/foo.jpg)
+ *   - http://... or https://...
+ *   - storage-style keys (bucket/path/file.jpg)
+ */
+function isValidImageSrc(src?: string | null): src is string {
+  if (!src) return false;
+  const s = String(src).trim();
+  if (!s || s === "null" || s === "undefined") return false;
+
+  if (s.startsWith("/")) return true; // local asset
+  try {
+    const u = new URL(s);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    // If it looks like a Supabase storage key, allow it (last-resort fallback)
+    return s.includes("/") && !s.includes(" ");
+  }
+}
+
+/** Safe wrapper around NextImage */
+function SafeNextImage({
+  src,
+  alt,
+  priority,
+  sizes,
+  style,
+}: {
+  src?: string | null;
   alt?: string;
-  caption?: string;
-  href?: string;
-  featured?: boolean;
-};
+  priority?: boolean;
+  sizes?: string;
+  style?: React.CSSProperties;
+}) {
+  const safeSrc = isValidImageSrc(src) ? src! : PLACEHOLDER;
 
-type Props = {
-  images: GalleryItem[];
-  columns?: number;
-  featuredFirst?: boolean;
-  priorityCount?: number; // how many first images to mark priority
-};
-
-export default function ImageGallery({ images, columns = 3, featuredFirst = false, priorityCount = 0 }: Props) {
   return (
-    <SimpleGrid columns={{ base: 1, sm: 2, md: columns }} spacing={4}>
-      {images.map((img, idx) => (
-        <GalleryCard key={(img.src ?? String(idx)) + idx} item={img} index={idx} featuredFirst={featuredFirst} priority={idx < (priorityCount ?? 0)} />
-      ))}
-    </SimpleGrid>
+    <NextImage
+      src={safeSrc}
+      alt={alt ?? "image"}
+      fill
+      sizes={sizes}
+      style={style}
+      priority={priority}
+    />
   );
 }
 
-function GalleryCard({ item, index, featuredFirst, priority }: { item: GalleryItem; index: number; featuredFirst: boolean; priority: boolean; }) {
-  // If featuredFirst is enabled and this is the first item, span 2 columns on md+
-  const gridColumn = featuredFirst && index === 0 ? { md: "span 2" } : undefined;
+export type ImageGalleryProps = {
+  images: {
+    src: string;
+    alt?: string;
+    caption?: string;
+  }[];
+};
 
-  const content = (
-    <Box position="relative" overflow="hidden" borderRadius="md" bg="gray.800" gridColumn={gridColumn}>
-      <AspectRatio ratio={4 / 3}>
-        <Box position="relative" width="100%" height="100%">
-          <ImageWithSkeleton
-            src={item.src ?? "/placeholder.jpg"}
-            alt={item.alt ?? item.caption ?? "Image"}
-            fill
-            sizes="(max-width: 480px) 100vw, (max-width: 768px) 50vw, 33vw"
-            fallbackSrc="/placeholder.jpg"
-            // pass priority down to ImageWithSkeleton which maps it to next/image priority
-            // note: priority should be used sparingly for best performance
-            {...(priority ? { priority: true } : {})}
-          />
-        </Box>
-      </AspectRatio>
+export default function ImageGallery({ images }: ImageGalleryProps) {
+  const [selected, setSelected] = useState(0);
 
-      {item.caption && (
-        <Box position="absolute" bottom={2} left={2} right={2} px={3} py={1} bg="rgba(0,0,0,0.45)" borderRadius="md">
-          <Text fontSize="sm" color="white" noOfLines={1}>
-            {item.caption}
-          </Text>
-        </Box>
-      )}
+  const safeImages =
+    images && images.length > 0
+      ? images
+      : [{ src: PLACEHOLDER, alt: "Placeholder" }];
+
+  return (
+    <Box>
+      {/* Main image */}
+      <Box
+        position="relative"
+        width="100%"
+        height={{ base: "280px", md: "480px" }}
+        borderRadius="md"
+        overflow="hidden"
+        mb={4}
+      >
+        <SafeNextImage
+          src={safeImages[selected]?.src}
+          alt={safeImages[selected]?.alt ?? "Property"}
+          sizes="100vw"
+          style={{ objectFit: "cover" }}
+          priority
+        />
+      </Box>
+
+      {/* Thumbnails */}
+      <SimpleGrid columns={{ base: 4, md: 6 }} spacing={2}>
+        {safeImages.map((img, idx) => (
+          <Box
+            key={idx}
+            position="relative"
+            height="80px"
+            borderRadius="md"
+            overflow="hidden"
+            cursor="pointer"
+            border={idx === selected ? "2px solid #3182ce" : "1px solid #ccc"}
+            onClick={() => setSelected(idx)}
+          >
+            <SafeNextImage
+              src={img.src}
+              alt={img.alt ?? "Thumbnail"}
+              sizes="20vw"
+              style={{ objectFit: "cover" }}
+            />
+          </Box>
+        ))}
+      </SimpleGrid>
     </Box>
-  );
-
-  return item.href ? (
-    <NextLink href={item.href} passHref legacyBehavior>
-      <a aria-label={item.caption ?? "Open property"} style={{ display: "block" }}>
-        {content}
-      </a>
-    </NextLink>
-  ) : (
-    content
   );
 }

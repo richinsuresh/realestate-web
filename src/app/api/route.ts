@@ -1,99 +1,50 @@
-// src/app/api/contact/route.ts
-import { NextResponse } from "next/server";
+// src/app/api/route.ts  (adjust path if route is /api/contact/route.ts)
+import { NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
+import { checkRate } from '@/lib/rateLimit';
 
-type RequestBody = {
-  name?: string;
-  email?: string;
-  subject?: string;
-  message?: string;
-};
+const ENABLE_EMAIL = process.env.ENABLE_EMAIL === 'true';
 
-function validate(body: RequestBody) {
-  if (!body.name || typeof body.name !== "string" || body.name.trim().length === 0) return "Name is required";
-  if (!body.email || typeof body.email !== "string" || !/^\S+@\S+\.\S+$/.test(body.email)) return "Valid email is required";
-  if (!body.subject || typeof body.subject !== "string" || body.subject.trim().length === 0) return "Subject is required";
-  if (!body.message || typeof body.message !== "string" || body.message.trim().length < 5) return "Message must be at least 5 characters";
-  return null;
-}
+const transporter = ENABLE_EMAIL ? nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: Number(process.env.SMTP_PORT) === 465,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+}) : null;
 
-/**
- * Temporary stub API for contact form.
- * - Validates the request
- * - Logs the request server-side for debugging
- * - Returns a success response but DOES NOT attempt to send email
- *
- * Replace the body of the `if (enableEmail)` branch with your nodemailer logic
- * once you have domain / SMTP credentials ready.
- */
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as RequestBody;
-
-    const v = validate(body);
-    if (v) {
-      return NextResponse.json({ error: v }, { status: 400 });
+    const ip = (req as any).headers?.get?.('x-forwarded-for') ?? 'unknown';
+    const rate = checkRate(ip);
+    if (!rate.ok) {
+      return NextResponse.json({ error: 'Rate limit exceeded', retryAfter: rate.retryAfter }, { status: 429 });
     }
 
-    // For now we do not send real emails. Toggle this to true to attempt sending.
-    const enableEmail = false;
-
-    if (!enableEmail) {
-      // server-side debug log (visible in Vercel logs)
-      // eslint-disable-next-line no-console
-      console.log("Contact form (stub) received:", {
-        name: body.name,
-        email: body.email,
-        subject: body.subject,
-        message: body.message?.slice(0, 1000), // truncate for safety
-      });
-
-      return NextResponse.json({
-        ok: true,
-        stub: true,
-        message: "Email sending is disabled on this build. The request was received and logged.",
-      });
+    const body = await req.json();
+    const { name, email, message } = body;
+    if (!name || !email || !message) {
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
-    // ----- When you are ready to enable email (example outline) -----
-    // NOTE: Keep this code commented out until you have SMTP / domain set up.
-    //
-    // import nodemailer from "nodemailer";
-    // const SMTP_HOST = process.env.SMTP_HOST;
-    // const SMTP_PORT = Number(process.env.SMTP_PORT || "587");
-    // const SMTP_USER = process.env.SMTP_USER;
-    // const SMTP_PASS = process.env.SMTP_PASS;
-    // const TO_EMAIL = process.env.TO_EMAIL;
-    //
-    // if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !TO_EMAIL) {
-    //   return NextResponse.json({ error: "Email server not configured" }, { status: 500 });
-    // }
-    //
-    // const transporter = nodemailer.createTransport({
-    //   host: SMTP_HOST,
-    //   port: SMTP_PORT,
-    //   secure: SMTP_PORT === 465,
-    //   auth: { user: SMTP_USER, pass: SMTP_PASS },
-    // });
-    //
-    // const fromAddress = `${body.name} <${body.email}>`;
-    // const html = `<p><strong>From:</strong> ${body.name} &lt;${body.email}&gt;</p>
-    //               <p><strong>Subject:</strong> ${body.subject}</p>
-    //               <hr />
-    //               <div>${(body.message ?? "").replace(/\n/g, "<br/>")}</div>`;
-    //
-    // await transporter.sendMail({
-    //   from: fromAddress,
-    //   to: TO_EMAIL,
-    //   subject: `[Website Contact] ${body.subject}`,
-    //   text: `${body.message}\n\nFrom: ${body.name} <${body.email}>`,
-    //   html,
-    // });
-    //
-    // return NextResponse.json({ ok: true });
+    if (ENABLE_EMAIL && transporter) {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+        to: process.env.CONTACT_RECEIVER_EMAIL,
+        subject: `Contact form: ${name}`,
+        text: `From: ${name} <${email}>\n\n${message}`,
+        html: `<p><strong>Name:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p>${message}</p>`
+      });
+    } else {
+      // persist to DB or queue in production; for now log minimal info
+      console.info('Contact submit (email disabled):', { name, email });
+    }
 
-  } catch (err: any) {
-    // eslint-disable-next-line no-console
-    console.error("Contact API stub error:", err);
-    return NextResponse.json({ error: "Failed to process request" }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error('Contact API error:', (err as Error).message);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
