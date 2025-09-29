@@ -1,13 +1,12 @@
-// src/components/Footer.tsx
 "use client";
 
-import { Box, Container, Flex, HStack, Text, Link as ChakraLink } from "@chakra-ui/react";
+import { Box, Container, Flex, HStack, Text, Link as ChakraLink, Button } from "@chakra-ui/react";
 
 export default function Footer() {
-  const openCallback = (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    window.dispatchEvent(new CustomEvent("openCallbackDialog"));
-  };
+  const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "ARK Infra Studio";
+  const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+918891143812").replace(/\D/g, "");
+  const WHATSAPP_FOOTER_MSG = "I cannot find a property that I need. Can you help?";
+  const WHATSAPP_FOOTER_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_FOOTER_MSG)}`;
 
   return (
     <Box as="footer" bg="black" borderTopWidth="1px" borderColor="gray.700" py={8}>
@@ -20,26 +19,30 @@ export default function Footer() {
         >
           {/* Company info */}
           <Text color="gray.400" fontSize="sm">
-            © {new Date().getFullYear()} ARK Infra Studio. All rights reserved.
+            © {new Date().getFullYear()} {COMPANY_NAME}. All rights reserved.
           </Text>
-
-          {/* Contact links + CTA text */}
+          {/* Contact links + WhatsApp CTA */}
           <HStack spacing={6} align="center">
-            <ChakraLink href="tel:+919876543210" color="white" _hover={{ color: "blue.400" }}>
-              +91 98765 43210
+            <ChakraLink href="tel:+918891143812" color="white" _hover={{ color: "blue.400" }}>
+              +91 88911 43812
             </ChakraLink>
 
-            <ChakraLink href="mailto:info@arkinfra.com" color="white" _hover={{ color: "blue.400" }}>
-              info@arkinfra.com
+            <ChakraLink href="mailto:info@arkinfras.com" color="white" _hover={{ color: "blue.400" }}>
+              info@arkinfras.com
             </ChakraLink>
+            <Text color="gray.400" fontSize="sm"> Not seeing your desired property?</Text>
 
-            {/* Single sentence with clickable call-to-action link */}
-            <Text color="gray.300" fontSize="sm">
-              Not seeing your desired property?{" "}
-              <ChakraLink as="button" onClick={openCallback} color="white" fontWeight="bold" ml={2}>
-                Book a callback now
-              </ChakraLink>
-            </Text>
+            {/* WhatsApp CTA */}
+            <Button
+              as="a"
+              href={WHATSAPP_FOOTER_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              size="sm"
+              colorScheme="green"
+            >
+              Chat on WhatsApp
+            </Button>
           </HStack>
         </Flex>
       </Container>

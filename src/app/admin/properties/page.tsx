@@ -32,22 +32,32 @@ import {
   AlertIcon,
   AlertTitle,
   AlertDescription,
+  Badge,
 } from "@chakra-ui/react";
 import { supabase } from "@/lib/supabaseClient";
 
+import {
+  DndContext,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 /**
- * Admin — Properties
+ * Admin — Properties (with thumbnail list + sortable gallery in edit modal)
  *
- * Rewritten full admin properties page. Key features:
- * - Session check + redirect to /admin/login when not authenticated
- * - Create property with multiple image upload (uploads to NEXT_PUBLIC_SUPABASE_BUCKET)
- * - Edit property (including tagline) and optionally append images
- * - Delete property
- * - Clear error UI when NEXT_PUBLIC_SUPABASE_BUCKET is missing
- *
- * NOTE:
- * - This file runs client-side, so it accesses only NEXT_PUBLIC_* env vars.
- * - Make sure NEXT_PUBLIC_SUPABASE_BUCKET is present in .env.local when running locally.
+ * Notes:
+ * - This file runs in browser; ensure NEXT_PUBLIC_SUPABASE_BUCKET is set.
+ * - Drag-and-drop uses @dnd-kit packages (install if not present).
  */
 
 type PropertyRow = {
@@ -62,6 +72,13 @@ type PropertyRow = {
   created_at?: string | null;
 };
 
+type PropertyImageRow = {
+  id: string;
+  property_id: string;
+  image_url: string;
+  display_order?: number | null;
+};
+
 function slugify(str: string) {
   return str
     .toLowerCase()
@@ -71,71 +88,86 @@ function slugify(str: string) {
     .replace(/(^-|-$)+/g, "");
 }
 
-// read public bucket name from env
 const STORAGE_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET ?? "";
+const PLACEHOLDER = "/placeholder.jpg";
 
-/**
- * Check whether the bucket exists and is accessible for the anon key.
- * We list the root path with limit=1 — if it errors, bucket likely missing/permissions.
- */
 async function bucketExists(bucket = STORAGE_BUCKET) {
   if (!bucket) return false;
   try {
     const res = await supabase.storage.from(bucket).list("", { limit: 1 });
     if (res.error) {
-      console.error("bucketExists: list error:", res.error);
+      console.error("bucketExists:", res.error);
       return false;
     }
     return Array.isArray(res.data);
   } catch (err) {
-    console.error("bucketExists unexpected error:", err);
+    console.error("bucketExists unexpected:", err);
     return false;
   }
 }
 
-/**
- * Upload files to the storage bucket and return their public URLs in order.
- * Throws a descriptive Error on failure so the UI can show it.
- */
 async function uploadFilesToStorage(bucket = STORAGE_BUCKET, files?: File[] | null) {
-  if (!bucket) throw new Error("Missing NEXT_PUBLIC_SUPABASE_BUCKET env. Add it to .env.local and restart.");
+  if (!bucket) throw new Error("Missing NEXT_PUBLIC_SUPABASE_BUCKET env var.");
   if (!files || files.length === 0) return [];
 
   const exists = await bucketExists(bucket);
-  if (!exists) {
-    throw new Error(`Storage bucket "${bucket}" not found or not accessible. Confirm the bucket exists in Supabase Storage and NEXT_PUBLIC_SUPABASE_BUCKET is set.`);
-  }
+  if (!exists) throw new Error(`Storage bucket "${bucket}" not found or inaccessible.`);
 
   const uploadedUrls: string[] = [];
-
   for (const file of files) {
     const safeName = file.name.replace(/\s+/g, "_").replace(/[^\w.\-]/g, "");
     const filePath = `properties/${Date.now()}-${safeName}`;
-
-    const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, { upsert: false });
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      throw new Error(`Upload failed for ${file.name}: ${uploadError.message ?? String(uploadError)}`);
+    const { error } = await supabase.storage.from(bucket).upload(filePath, file, { upsert: false });
+    if (error) {
+      console.error("Upload error:", error);
+      throw new Error(`Upload failed for ${file.name}: ${error.message ?? String(error)}`);
     }
-
     const publicRes = supabase.storage.from(bucket).getPublicUrl(filePath);
     const publicUrl = (publicRes?.data as any)?.publicUrl ?? (publicRes?.data as any)?.publicURL ?? null;
-    if (!publicUrl) {
-      console.error("getPublicUrl returned no URL for:", filePath, publicRes);
-      throw new Error("Uploaded but could not obtain public URL. Is the bucket public?");
-    }
-
+    if (!publicUrl) throw new Error("Uploaded but could not obtain public URL. Is the bucket public?");
     uploadedUrls.push(publicUrl);
   }
-
   return uploadedUrls;
+}
+
+/* Sortable thumbnail component (used in edit modal) */
+function SortableThumb({
+  img,
+  isMain,
+  onSetMain,
+  onDelete,
+}: {
+  img: PropertyImageRow;
+  isMain: boolean;
+  onSetMain: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: img.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <Box ref={setNodeRef} style={style} borderRadius="md" overflow="hidden" border="1px solid" borderColor="gray.200">
+      <Image src={img.image_url} alt="thumb" width="100%" height="120px" objectFit="cover" />
+      <HStack spacing={0}>
+        {isMain ? (
+          <Badge flex="1" colorScheme="green" textAlign="center" py={2}>Main</Badge>
+        ) : (
+          <Button flex="1" size="sm" onClick={onSetMain}>Set as Main</Button>
+        )}
+        <Button flex="1" size="sm" colorScheme="red" onClick={onDelete}>Delete</Button>
+      </HStack>
+    </Box>
+  );
 }
 
 export default function AdminPropertiesPage() {
   const router = useRouter();
   const toast = useToast();
 
-  // auth/session
+  // session / auth
   const [user, setUser] = useState<any | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
 
@@ -143,7 +175,7 @@ export default function AdminPropertiesPage() {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // create form state
+  // create form
   const [title, setTitle] = useState("");
   const [tagline, setTagline] = useState("");
   const [description, setDescription] = useState("");
@@ -155,14 +187,17 @@ export default function AdminPropertiesPage() {
   // edit modal
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [editing, setEditing] = useState<PropertyRow | null>(null);
+  const [editingImages, setEditingImages] = useState<PropertyImageRow[]>([]);
   const [editFiles, setEditFiles] = useState<File[]>([]);
   const [editLoading, setEditLoading] = useState(false);
 
-  // session check & auth listener
+  // DnD sensors
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor));
+
+  // session check
   useEffect(() => {
     let mounted = true;
-
-    async function init() {
+    async function check() {
       setLoadingSession(true);
       try {
         const { data } = await supabase.auth.getSession();
@@ -173,13 +208,12 @@ export default function AdminPropertiesPage() {
         }
         if (mounted) setUser(session.user);
       } catch (err) {
-        console.error("Session check error:", err);
         router.push("/admin/login");
       } finally {
         if (mounted) setLoadingSession(false);
       }
     }
-    init();
+    check();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, _session) => {
       supabase.auth.getSession().then(({ data }) => {
@@ -226,7 +260,7 @@ export default function AdminPropertiesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingSession]);
 
-  // create
+  // create property
   async function handleUploadAndCreate() {
     if (!title.trim()) {
       toast({ title: "Title is required", status: "warning" });
@@ -297,21 +331,31 @@ export default function AdminPropertiesPage() {
     }
   }
 
-  // open edit modal
-  function openEditModal(row: PropertyRow) {
+  // open edit modal and fetch images
+  async function openEditModal(row: PropertyRow) {
     setEditing(row);
     setEditFiles([]);
+    try {
+      const { data } = await supabase
+        .from("property_images")
+        .select("id, property_id, image_url, display_order")
+        .eq("property_id", row.id)
+        .order("display_order", { ascending: true });
+      setEditingImages((data ?? []) as PropertyImageRow[]);
+    } catch (err) {
+      console.error("Error loading images for edit:", err);
+      setEditingImages([]);
+    }
     onOpen();
   }
 
-  // update property
+  // update property (and optionally append new images)
   async function handleUpdateProperty() {
     if (!editing) return;
     setEditLoading(true);
 
     try {
       let imageUrls: string[] = [];
-
       if (editFiles && editFiles.length > 0) {
         try {
           imageUrls = await uploadFilesToStorage(STORAGE_BUCKET, editFiles);
@@ -341,11 +385,13 @@ export default function AdminPropertiesPage() {
         console.error("Update error:", error);
         toast({ title: "Update failed", status: "error" });
       } else {
+        // append new images rows
         if (editing.id && imageUrls.length > 0) {
+          const existingCount = editingImages.length;
           const imageRows = imageUrls.map((url, i) => ({
             property_id: editing.id,
             image_url: url,
-            display_order: i,
+            display_order: existingCount + i,
           }));
           const { error: imgsErr } = await supabase.from("property_images").insert(imageRows);
           if (imgsErr) console.error("Error inserting property_images:", imgsErr);
@@ -365,28 +411,81 @@ export default function AdminPropertiesPage() {
     }
   }
 
-  // delete
-  async function handleDeleteProperty(id: string) {
-    const ok = window.confirm("Delete this property?");
-    if (!ok) return;
+  // drag end: reorder editingImages and persist
+  async function handleDragEnd(event: any) {
+    if (!event.over) return;
+    const { active, over } = event;
+    if (active.id === over.id) return;
 
-    const { error } = await supabase.from("properties").delete().eq("id", id);
-    if (error) {
-      console.error("Delete error:", error);
-      toast({ title: "Delete failed", status: "error" });
-    } else {
-      toast({ title: "Property deleted", status: "info" });
-      fetchProperties();
+    const oldIndex = editingImages.findIndex((i) => i.id === active.id);
+    const newIndex = editingImages.findIndex((i) => i.id === over.id);
+    const newOrder = arrayMove(editingImages, oldIndex, newIndex);
+    setEditingImages(newOrder);
+
+    // persist display_order
+    try {
+      await Promise.all(
+        newOrder.map((img, i) => supabase.from("property_images").update({ display_order: i }).eq("id", img.id))
+      );
+      toast({ title: "Image order saved", status: "success", duration: 1500 });
+    } catch (err) {
+      console.error("Error saving new order:", err);
+      toast({ title: "Failed to save order", status: "error" });
     }
   }
 
-  // sign out
+  // set main image (update properties.main_image_url)
+  async function handleSetMainImage(pid: string, url: string) {
+    try {
+      const { error } = await supabase.from("properties").update({ main_image_url: url }).eq("id", pid);
+      if (error) throw error;
+      // update local editing so UI reflects change
+      if (editing) setEditing({ ...editing, main_image_url: url });
+      // also refresh list
+      fetchProperties();
+      toast({ title: "Main image set", status: "success" });
+    } catch (err: any) {
+      console.error("Error setting main image:", err);
+      toast({ title: "Failed to set main image", status: "error" });
+    }
+  }
+
+  // delete image
+  async function handleDeleteImage(imageId: string) {
+    const ok = window.confirm("Delete this image?");
+    if (!ok) return;
+    try {
+      const { error } = await supabase.from("property_images").delete().eq("id", imageId);
+      if (error) throw error;
+      setEditingImages(editingImages.filter((i) => i.id !== imageId));
+      toast({ title: "Image deleted", status: "info" });
+    } catch (err) {
+      console.error("Error deleting image:", err);
+      toast({ title: "Failed to delete image", status: "error" });
+    }
+  }
+
+  // delete property
+  async function handleDeleteProperty(id: string) {
+    const ok = window.confirm("Delete this property?");
+    if (!ok) return;
+    try {
+      const { error } = await supabase.from("properties").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Property deleted", status: "info" });
+      fetchProperties();
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast({ title: "Delete failed", status: "error" });
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/admin/login");
   }
 
-  // Clear error UI when bucket env missing
+  // show clear UI if bucket env missing
   if (!STORAGE_BUCKET) {
     return (
       <Container maxW="6xl" py={8}>
@@ -422,21 +521,14 @@ export default function AdminPropertiesPage() {
       <HStack justify="space-between" mb={6}>
         <Heading size="lg">Admin — Properties</Heading>
         <HStack spacing={3}>
-          <Text fontSize="sm" color="gray.600">
-            {user?.email}
-          </Text>
-          <Button colorScheme="red" size="sm" onClick={handleSignOut}>
-            Logout
-          </Button>
+          <Text fontSize="sm" color="gray.600">{user?.email}</Text>
+          <Button colorScheme="red" size="sm" onClick={handleSignOut}>Logout</Button>
         </HStack>
       </HStack>
 
       {/* Create form */}
       <Box mb={8} borderWidth="1px" borderRadius="md" p={4}>
-        <Heading size="sm" mb={4}>
-          Add new property
-        </Heading>
-
+        <Heading size="sm" mb={4}>Add new property</Heading>
         <VStack spacing={3} align="stretch">
           <FormControl>
             <FormLabel>Title</FormLabel>
@@ -472,17 +564,13 @@ export default function AdminPropertiesPage() {
           </SimpleGrid>
 
           <HStack>
-            <Button colorScheme="blue" onClick={handleUploadAndCreate} isLoading={uploading}>
-              Create property
-            </Button>
+            <Button colorScheme="blue" onClick={handleUploadAndCreate} isLoading={uploading}>Create property</Button>
           </HStack>
         </VStack>
       </Box>
 
       {/* Properties list */}
-      <Heading size="md" mb={3}>
-        Existing properties
-      </Heading>
+      <Heading size="md" mb={3}>Existing properties</Heading>
 
       {loading ? (
         <Box><Text>Loading…</Text></Box>
@@ -491,14 +579,15 @@ export default function AdminPropertiesPage() {
           {properties.map((p) => (
             <Box key={p.id} borderWidth="1px" borderRadius="md" p={3}>
               <HStack spacing={3} align="start">
-                <Box minW="120px" maxW="160px" height="100px" bg="gray.50" borderRadius="md" overflow="hidden">
-                  {p.main_image_url ? (
-                    <Image src={p.main_image_url} alt={p.title} objectFit="cover" width="100%" height="100%" />
-                  ) : (
-                    <Box width="100%" height="100%" display="flex" alignItems="center" justifyContent="center">
-                      <Text fontSize="sm" color="gray.500">No image</Text>
-                    </Box>
-                  )}
+                {/* Thumbnail: uses main_image_url or placeholder */}
+                <Box minW="140px" maxW="180px" height="110px" bg="gray.50" borderRadius="md" overflow="hidden">
+                  <Image
+                    src={p.main_image_url ?? PLACEHOLDER}
+                    alt={p.title}
+                    objectFit="cover"
+                    width="100%"
+                    height="100%"
+                  />
                 </Box>
 
                 <Box flex="1">
@@ -520,14 +609,14 @@ export default function AdminPropertiesPage() {
       )}
 
       {/* Edit Modal */}
-      <Modal isOpen={isOpen} onClose={() => { setEditing(null); onClose(); }}>
+      <Modal isOpen={isOpen} onClose={() => { setEditing(null); onClose(); }} size="6xl">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Edit property</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {editing ? (
-              <VStack spacing={3} align="stretch">
+              <VStack spacing={4} align="stretch">
                 <FormControl>
                   <FormLabel>Title</FormLabel>
                   <Input value={editing.title ?? ""} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
@@ -565,6 +654,26 @@ export default function AdminPropertiesPage() {
                     <Text fontSize="xs" color="gray.500" mt={1}>You can append more images to this property.</Text>
                   </FormControl>
                 </SimpleGrid>
+
+                {/* Sortable gallery */}
+                <Box>
+                  <FormLabel>Gallery (drag to reorder)</FormLabel>
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={editingImages.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
+                        {editingImages.map((img) => (
+                          <SortableThumb
+                            key={img.id}
+                            img={img}
+                            isMain={editing.main_image_url === img.image_url}
+                            onSetMain={() => handleSetMainImage(editing.id, img.image_url)}
+                            onDelete={() => handleDeleteImage(img.id)}
+                          />
+                        ))}
+                      </SimpleGrid>
+                    </SortableContext>
+                  </DndContext>
+                </Box>
               </VStack>
             ) : null}
           </ModalBody>

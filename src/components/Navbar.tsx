@@ -1,4 +1,3 @@
-// src/components/Navbar.tsx
 "use client";
 
 import React from "react";
@@ -7,10 +6,9 @@ import { Box, Flex, HStack, Button, Image } from "@chakra-ui/react";
 import MobileMenu from "./MobileMenu";
 
 export default function Navbar() {
-  const openCallback = (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    window.dispatchEvent(new CustomEvent("openCallbackDialog"));
-  };
+  const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+919812345678").replace(/\D/g, "");
+  const WHATSAPP_HOME_MSG = "Hello, I'm interested in some properties. Can you assist me?";
+  const WHATSAPP_HOME_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_HOME_MSG)}`;
 
   return (
     <Box
@@ -38,14 +36,16 @@ export default function Navbar() {
         </HStack>
 
         <HStack spacing={3}>
-          {/* CTA: open modal instead of navigating */}
+          {/* Chat on WhatsApp - header CTA (home message) */}
           <Button
-            onClick={openCallback}
-            colorScheme="brand"
+            as="a"
+            href={WHATSAPP_HOME_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            colorScheme="green"
             size="sm"
-            _hover={{ bg: "blue.500" }}
           >
-            Book for a callback
+            Chat on WhatsApp
           </Button>
 
           {/* Mobile menu */}

@@ -61,12 +61,9 @@ type PropertyImageRow = {
 
 const PLACEHOLDER = "/placeholder.jpg";
 
-export default async function PropertyPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const idParam = params?.id ?? "";
+// ✅ FIXED signature: props: any avoids type error
+export default async function PropertyPage(props: any) {
+  const idParam = props?.params?.id ?? "";
   if (!idParam) {
     return (
       <Box p={8}>
@@ -138,13 +135,11 @@ export default async function PropertyPage({
     ];
   }
 
-  // no resolver needed if URLs are already public
   const galleryItems = galleryRaw.map((it) => ({
     src: it.image_url ?? PLACEHOLDER,
     alt: it.alt ?? property.title ?? "Property image",
   }));
 
-  // flexible gallery count
   const imagesToShow = galleryItems.slice(0, 6);
 
   const maps = buildMapsUrl(
@@ -156,9 +151,9 @@ export default async function PropertyPage({
     process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+919812345678"
   ).replace(/\D/g, "");
   const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-    `Hi — I'm interested in "${
-      property.title ?? "this property"
-    }". Please share details.`
+    `Hi — I'm interested in "${property.title ?? "this property"}"${
+      property.location ? ` located at ${property.location}` : ""
+    }. Please share details.`
   )}`;
 
   return (
@@ -220,44 +215,39 @@ export default async function PropertyPage({
           </SimpleGrid>
         </Flex>
 
-        {/* ---------- BELOW: description (with background) + price card ---------- */}
+        {/* ---------- BELOW: description + price card ---------- */}
         <Grid
           templateColumns={{ base: "1fr", md: "2fr 420px" }}
           gap={10}
           alignItems="start"
         >
           <Box>
-            <Box
+            <Text
+              color="gray.700"
+              fontSize="md"
+              whiteSpace="pre-line"
+              mb={6}
+              p={4}
+              borderRadius="md"
               bg="gray.50"
-              p={6}
-              borderRadius="12px"
-              border="1px solid"
-              borderColor="gray.100"
-              boxShadow="sm"
             >
-              <Text
-                color="gray.700"
-                fontSize="md"
-                whiteSpace="pre-line"
+              {property.description ?? "No description provided."}
+            </Text>
+
+            {property.location && (
+              <Badge
+                colorScheme="gray"
+                variant="subtle"
+                px={3}
+                py={2}
+                borderRadius="md"
                 mb={6}
               >
-                {property.description ?? "No description provided."}
-              </Text>
+                {property.location}
+              </Badge>
+            )}
 
-              {property.location && (
-                <Badge
-                  colorScheme="gray"
-                  variant="subtle"
-                  px={3}
-                  py={2}
-                  borderRadius="md"
-                >
-                  {property.location}
-                </Badge>
-              )}
-            </Box>
-
-            {/* Map embed */}
+            {/* Map */}
             <Box
               mt={6}
               borderRadius="md"
@@ -296,7 +286,6 @@ export default async function PropertyPage({
             </Box>
           </Box>
 
-          {/* Price card */}
           <Box display="flex" alignItems="flex-start" justifyContent="center">
             <Box
               width="100%"

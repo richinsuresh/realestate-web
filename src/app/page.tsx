@@ -255,19 +255,7 @@ export default async function Home() {
 
             <HStack spacing={4} pt={{ base: 2, md: 4 }} justify="center" flexWrap="wrap">
               <Button size="lg" colorScheme="brand" as="a" href="/listings">View Listings</Button>
-              <Button size="lg" variant="outline" borderColor="gray.600" color="white" as="a" href="/about">About</Button>
-              <Button
-                size="lg"
-                bg="green.500"
-                color="white"
-                _hover={{ bg: "green.600" }}
-                as="a"
-                href={`https://wa.me/${(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+919812345678").replace(/\D/g, "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Chat on WhatsApp
-              </Button>
+              {/* About and hero-local WhatsApp button removed — header now contains the Chat on WhatsApp CTA */}
             </HStack>
           </VStack>
         </Container>
