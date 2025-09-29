@@ -1,25 +1,27 @@
 // src/app/listings/[id]/page.tsx
 import React from "react";
+import NextImage from "next/image";
 import {
+  AspectRatio,
   Box,
   Heading,
   Text,
-  Stack,
   Flex,
   Link as ChakraLink,
+  SimpleGrid,
+  Button,
+  Grid,
+  Badge,
+  Container,
 } from "@chakra-ui/react";
-import Link from "next/link";
-import NextImage from "next/image";
-import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
-import ImageGallery from "@/components/ImageGallery";
 import NavButton from "@/components/NavButton";
 
 export const revalidate = 60;
 
 function buildMapsUrl(
   coords?: { lat?: number; lng?: number } | null,
-  locationStr?: string
+  locationStr?: string | null
 ) {
   if (coords && coords.lat !== undefined && coords.lng !== undefined) {
     const lat = encodeURIComponent(String(coords.lat));
@@ -29,7 +31,6 @@ function buildMapsUrl(
       link: `https://www.google.com/maps?q=${lat},${lng}&z=15`,
     };
   }
-
   if (locationStr && locationStr.trim().length > 0) {
     const q = encodeURIComponent(locationStr);
     return {
@@ -37,7 +38,6 @@ function buildMapsUrl(
       link: `https://www.google.com/maps?q=${q}&z=13`,
     };
   }
-
   return null;
 }
 
@@ -56,82 +56,18 @@ type PropertyImageRow = {
   id: string;
   image_url?: string | null;
   alt?: string | null;
-  caption?: string | null;
   display_order?: number | null;
 };
 
-// ---- config (strict) ----
-const BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET;
-if (!BUCKET) {
-  throw new Error(
-    "[config] Missing NEXT_PUBLIC_SUPABASE_BUCKET env. Add it to .env.local and restart."
-  );
-}
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-
-const serverSupabase =
-  SERVICE_ROLE && SUPABASE_URL
-    ? createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
-    : null;
-
 const PLACEHOLDER = "/placeholder.jpg";
 
-function isEmptyVal(s?: string | null) {
-  return !s || s.trim() === "" || s.trim() === "null" || s.trim() === "undefined";
-}
-
-function looksLikeAbsoluteUrl(s?: string | null) {
-  if (isEmptyVal(s)) return false;
-  try {
-    const u = new URL(s!.trim());
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function looksLikeLocalPath(s?: string | null) {
-  return !!(s && typeof s === "string" && s.startsWith("/"));
-}
-
-async function resolveImageUrl(keyOrUrl?: string | null, expiresSec = 60) {
-  if (isEmptyVal(keyOrUrl)) return null;
-  const trimmed = keyOrUrl!.trim();
-
-  if (looksLikeAbsoluteUrl(trimmed) || looksLikeLocalPath(trimmed)) {
-    return trimmed;
-  }
-
-  const storageKey = trimmed;
-
-  if (serverSupabase) {
-    try {
-      const { data, error } = await serverSupabase.storage.from(BUCKET).createSignedUrl(storageKey, expiresSec);
-      if (!error && data?.signedUrl) {
-        return data.signedUrl;
-      }
-      console.error("createSignedUrl (property page) error:", error ?? null);
-    } catch (err) {
-      console.error("createSignedUrl (property page) unexpected error:", err);
-    }
-  }
-
-  try {
-    const publicRes = supabase.storage.from(BUCKET).getPublicUrl(storageKey);
-    const publicUrl = (publicRes?.data as any)?.publicUrl ?? (publicRes?.data as any)?.publicURL ?? null;
-    if (publicUrl) return publicUrl;
-  } catch (err) {
-    console.error("getPublicUrl (property page) error:", err);
-  }
-
-  return null;
-}
-
-export default async function PropertyPage(props: any) {
-  const params = props?.params as { id?: string } | undefined;
-  const paramId = params?.id ?? "";
-  if (!paramId) {
+export default async function PropertyPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const idParam = params?.id ?? "";
+  if (!idParam) {
     return (
       <Box p={8}>
         <Heading>Invalid property</Heading>
@@ -140,35 +76,30 @@ export default async function PropertyPage(props: any) {
     );
   }
 
+  // --- fetch property ---
   let property: PropertyRow | null = null;
-
   try {
-    const { data: bySlug, error: slugErr } = await supabase
+    const { data: byId } = await supabase
       .from("properties")
-      .select("id, title, description, price, location, main_image_url, slug, coordinates")
-      .eq("slug", paramId)
+      .select(
+        "id, title, description, price, location, main_image_url, slug, coordinates"
+      )
+      .eq("id", idParam)
       .maybeSingle();
 
-    if (slugErr) {
-      console.error("Error fetching by slug:", slugErr);
-    }
-
-    if (bySlug) {
-      property = bySlug as PropertyRow;
-    } else {
-      const { data: byId, error: idErr } = await supabase
+    if (byId) property = byId as PropertyRow;
+    else {
+      const { data: bySlug } = await supabase
         .from("properties")
-        .select("id, title, description, price, location, main_image_url, slug, coordinates")
-        .eq("id", paramId)
+        .select(
+          "id, title, description, price, location, main_image_url, slug, coordinates"
+        )
+        .eq("slug", idParam)
         .maybeSingle();
-
-      if (idErr) {
-        console.error("Error fetching by id:", idErr);
-      }
-      property = (byId as PropertyRow) ?? null;
+      property = (bySlug as PropertyRow) ?? null;
     }
   } catch (err) {
-    console.error("Supabase fetch error (property details):", err);
+    console.error("Error fetching property:", err);
   }
 
   if (!property) {
@@ -182,52 +113,53 @@ export default async function PropertyPage(props: any) {
     );
   }
 
-  // ---------------- FETCH IMAGES ----------------
-  let galleryItemsRaw: PropertyImageRow[] = [];
+  // --- fetch images ---
+  let galleryRaw: PropertyImageRow[] = [];
   try {
-    const { data: imagesData, error: imagesErr } = await supabase
+    const { data: imagesData } = await supabase
       .from("property_images")
-      .select("id, image_url, alt, caption, display_order")
+      .select("id, image_url, alt, display_order")
       .eq("property_id", property.id)
       .order("display_order", { ascending: true });
 
-    if (imagesErr) {
-      console.error("Error fetching property_images:", imagesErr);
-    } else if (imagesData && imagesData.length > 0) {
-      galleryItemsRaw = (imagesData as PropertyImageRow[]).map((r) => r);
-    }
+    if (imagesData && imagesData.length > 0)
+      galleryRaw = imagesData as PropertyImageRow[];
   } catch (err) {
-    console.error("Unexpected error fetching property images:", err);
+    console.error("Error fetching images:", err);
   }
 
-  if (galleryItemsRaw.length === 0 && property.main_image_url) {
-    galleryItemsRaw = [
+  if (galleryRaw.length === 0 && property.main_image_url) {
+    galleryRaw = [
       {
         id: "main",
         image_url: property.main_image_url,
         alt: property.title ?? null,
-        caption: null,
-        display_order: 0,
       },
     ];
   }
 
-  const resolvePromises = galleryItemsRaw.map((it) => resolveImageUrl(it.image_url ?? null, 60));
-  const resolved = await Promise.all(resolvePromises);
+  // no resolver needed if URLs are already public
+  const galleryItems = galleryRaw.map((it) => ({
+    src: it.image_url ?? PLACEHOLDER,
+    alt: it.alt ?? property.title ?? "Property image",
+  }));
 
-  const galleryItems = galleryItemsRaw.map((it, idx) => {
-    const resolvedUrl = resolved[idx] ?? null;
-    return {
-      src: resolvedUrl ?? PLACEHOLDER,
-      alt: it.alt ?? property.title ?? "Property image",
-      caption: it.caption ?? undefined,
-    };
-  });
+  // flexible gallery count
+  const imagesToShow = galleryItems.slice(0, 6);
 
   const maps = buildMapsUrl(
-    (property as any).coordinates ?? null,
+    property.coordinates ?? null,
     property.location ?? undefined
   );
+
+  const WHATSAPP_NUMBER = (
+    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+919812345678"
+  ).replace(/\D/g, "");
+  const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+    `Hi — I'm interested in "${
+      property.title ?? "this property"
+    }". Please share details.`
+  )}`;
 
   return (
     <>
@@ -242,121 +174,179 @@ export default async function PropertyPage(props: any) {
         </NavButton>
       </Box>
 
-      <Box maxW="6xl" mx="auto" px={4} py={6}>
-        <Stack spacing={6}>
-          <Heading>{property.title ?? "Untitled property"}</Heading>
+      <Container maxW="1400px" px={6} py={8}>
+        <Heading as="h1" fontSize={{ base: "2xl", md: "3xl" }} mb={8}>
+          {property.title ?? "Untitled property"}
+        </Heading>
 
-          {/* Gallery: pass fully resolved URLs to ImageGallery */}
-          {galleryItems.length > 0 ? (
-            <ImageGallery images={galleryItems} />
-          ) : (
-            <Box
-              borderRadius="md"
-              overflow="hidden"
-              width="100%"
-              height="420px"
-              bg="gray.100"
-            />
-          )}
-
-          {/* Price + Enquiry */}
-          <Flex
-            direction={{ base: "column", md: "row" }}
-            justify="space-between"
-            gap={6}
+        {/* ---------- ENLARGED CENTERED GALLERY ---------- */}
+        <Flex justify="center" mb={12}>
+          <SimpleGrid
+            columns={{
+              base: 1,
+              sm: Math.min(imagesToShow.length, 2),
+              md: Math.min(imagesToShow.length, 3),
+            }}
+            spacing={4}
+            width="100%"
+            maxW={
+              imagesToShow.length === 1
+                ? "1000px"
+                : imagesToShow.length === 2
+                ? "1200px"
+                : "1400px"
+            }
+            justifyItems="center"
           >
-            <Box flex="1" minW={0}>
+            {imagesToShow.slice(0, 3).map((img, idx) => (
+              <AspectRatio
+                key={idx}
+                ratio={4 / 3}
+                width="100%"
+                borderRadius="16px"
+                overflow="hidden"
+                boxShadow="xl"
+              >
+                <NextImage
+                  src={img.src}
+                  alt={img.alt}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1400px) 33vw, 33vw"
+                  style={{ objectFit: "cover", objectPosition: "center" }}
+                  priority={idx < 3}
+                />
+              </AspectRatio>
+            ))}
+          </SimpleGrid>
+        </Flex>
+
+        {/* ---------- BELOW: description (with background) + price card ---------- */}
+        <Grid
+          templateColumns={{ base: "1fr", md: "2fr 420px" }}
+          gap={10}
+          alignItems="start"
+        >
+          <Box>
+            <Box
+              bg="gray.50"
+              p={6}
+              borderRadius="12px"
+              border="1px solid"
+              borderColor="gray.100"
+              boxShadow="sm"
+            >
               <Text
                 color="gray.700"
                 fontSize="md"
                 whiteSpace="pre-line"
-                mb={3}
+                mb={6}
               >
                 {property.description ?? "No description provided."}
               </Text>
 
               {property.location && (
-                <Text
-                  display="inline-block"
-                  bg="gray.100"
-                  color="gray.800"
+                <Badge
+                  colorScheme="gray"
+                  variant="subtle"
                   px={3}
                   py={2}
                   borderRadius="md"
-                  fontWeight="600"
-                  boxShadow="sm"
-                  mb={3}
                 >
                   {property.location}
-                </Text>
+                </Badge>
               )}
-
-              {/* Map */}
-              <Box
-                mt={4}
-                borderRadius="md"
-                overflow="hidden"
-                boxShadow="sm"
-                border="1px solid"
-                borderColor="gray.200"
-                width="100%"
-                height={{ base: "220px", md: "320px" }}
-              >
-                {maps ? (
-                  <ChakraLink
-                    href={maps.link}
-                    isExternal
-                    display="block"
-                    width="100%"
-                    height="100%"
-                  >
-                    <iframe
-                      title="Property location map"
-                      src={maps.embed}
-                      style={{ border: 0, width: "100%", height: "100%" }}
-                      loading="lazy"
-                    />
-                  </ChakraLink>
-                ) : (
-                  <Box
-                    width="100%"
-                    height="100%"
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <Text color="gray.500">No location available</Text>
-                  </Box>
-                )}
-              </Box>
             </Box>
 
+            {/* Map embed */}
             <Box
-              width={{ base: "100%", md: "300px" }}
-              display="flex"
-              justifyContent="flex-end"
-              alignItems="flex-start"
+              mt={6}
+              borderRadius="md"
+              overflow="hidden"
+              boxShadow="sm"
+              border="1px solid"
+              borderColor="gray.200"
+              width="100%"
+              height={{ base: "220px", md: "320px" }}
             >
-              <Stack spacing={4} align="flex-end" width="100%">
-                <Box textAlign="right" width="100%">
-                  <Text fontSize="sm" color="gray.500" mb={1}>
-                    Prices starting from
-                  </Text>
-                  <Text
-                    fontWeight="extrabold"
-                    fontSize="3xl"
-                    color="black"
-                  >
-                    {typeof property.price === "number"
-                      ? `₹${property.price.toLocaleString("en-IN")}`
-                      : "—"}
-                  </Text>
-                </Box>
-              </Stack>
+              {maps ? (
+                <ChakraLink
+                  href={maps.link}
+                  isExternal
+                  display="block"
+                  width="100%"
+                  height="100%"
+                >
+                  <iframe
+                    title="Property location map"
+                    src={maps.embed}
+                    style={{ border: 0, width: "100%", height: "100%" }}
+                    loading="lazy"
+                  />
+                </ChakraLink>
+              ) : (
+                <Flex
+                  width="100%"
+                  height="100%"
+                  align="center"
+                  justify="center"
+                >
+                  <Text color="gray.500">No location available</Text>
+                </Flex>
+              )}
             </Box>
-          </Flex>
-        </Stack>
-      </Box>
+          </Box>
+
+          {/* Price card */}
+          <Box display="flex" alignItems="flex-start" justifyContent="center">
+            <Box
+              width="100%"
+              maxW="380px"
+              borderRadius="16px"
+              p={6}
+              boxShadow="xl"
+              border="1px solid"
+              borderColor="gray.100"
+              bg="white"
+            >
+              <Text
+                fontSize="sm"
+                color="gray.500"
+                mb={2}
+                textAlign="center"
+              >
+                Prices starting from
+              </Text>
+
+              <Text
+                fontWeight="extrabold"
+                fontSize={{ base: "2xl", md: "3xl" }}
+                color="black"
+                mb={6}
+                textAlign="center"
+                letterSpacing="-0.02em"
+              >
+                {typeof property.price === "number"
+                  ? `₹${property.price.toLocaleString("en-IN")}`
+                  : "—"}
+              </Text>
+
+              <Button
+                as="a"
+                href={WHATSAPP_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                colorScheme="green"
+                width="100%"
+                size="lg"
+                borderRadius="12px"
+                aria-label="Enquire on WhatsApp"
+              >
+                Enquire
+              </Button>
+            </Box>
+          </Box>
+        </Grid>
+      </Container>
     </>
   );
 }
