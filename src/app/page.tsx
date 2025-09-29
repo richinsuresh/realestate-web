@@ -43,7 +43,8 @@ type PropertyRow = {
 };
 
 // ---- config (strict: fail loudly if BUCKET missing) ----
-const BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET;
+// make BUCKET a definite string so TypeScript knows its type
+const BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET ?? "";
 if (!BUCKET) {
   throw new Error(
     "[config] Missing NEXT_PUBLIC_SUPABASE_BUCKET env. Add it to .env.local and restart."
@@ -91,6 +92,7 @@ async function resolveImageUrl(keyOrUrl?: string | null, expiresSec = 60) {
   // Try signed URL with server client (private buckets)
   if (serverSupabase) {
     try {
+      // BUCKET is definitely a string (see top guard)
       const { data, error } = await serverSupabase.storage.from(BUCKET).createSignedUrl(storageKey, expiresSec);
       if (!error && data?.signedUrl) return data.signedUrl;
       console.error("createSignedUrl error (homepage)", error ?? null);
