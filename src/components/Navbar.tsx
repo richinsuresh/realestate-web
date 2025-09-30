@@ -1,14 +1,16 @@
+// src/components/Navbar.tsx
 "use client";
 
 import React from "react";
 import Link from "next/link";
 import { Box, Flex, HStack, Button, Image } from "@chakra-ui/react";
-import MobileMenu from "./MobileMenu";
 
 export default function Navbar() {
-  const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+919812345678").replace(/\D/g, "");
-  const WHATSAPP_HOME_MSG = "Hello, I'm interested in some properties. Can you assist me?";
-  const WHATSAPP_HOME_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_HOME_MSG)}`;
+  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "918891143812";
+  const whatsappDigits = whatsappNumber.replace(/\D/g, "");
+  const whatsappHref = `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(
+    "Hello, I'm interested in some properties. Can you assist me?"
+  )}`;
 
   return (
     <Box
@@ -32,26 +34,21 @@ export default function Navbar() {
         <HStack spacing={6} display={{ base: "none", md: "flex" }}>
           <Link href="/listings" style={{ color: "white" }}>Listings</Link>
           <Link href="/about" style={{ color: "white" }}>About</Link>
-          <Link href="/contact" style={{ color: "white" }}>Contact</Link>
         </HStack>
 
         <HStack spacing={3}>
-          {/* Chat on WhatsApp - header CTA (home message) */}
+          {/* CTA: WhatsApp chat */}
           <Button
             as="a"
-            href={WHATSAPP_HOME_LINK}
+            href={whatsappHref}
             target="_blank"
             rel="noopener noreferrer"
-            colorScheme="green"
+            colorScheme="whatsapp"
             size="sm"
+            _hover={{ bg: "green.600" }}
           >
             Chat on WhatsApp
           </Button>
-
-          {/* Mobile menu */}
-          <Box display={{ base: "inline-flex", md: "none" }}>
-            <MobileMenu />
-          </Box>
         </HStack>
       </Flex>
     </Box>
