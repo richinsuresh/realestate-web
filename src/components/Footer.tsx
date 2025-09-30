@@ -3,7 +3,7 @@
 import { Box, Container, Flex, HStack, Text, Link as ChakraLink, Button } from "@chakra-ui/react";
 
 export default function Footer() {
-  const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "ARK Infra Studio";
+  const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Website built and managed by Lyra Vizora";
   const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+918891143812").replace(/\D/g, "");
   const WHATSAPP_FOOTER_MSG = "I cannot find a property that I need. Can you help?";
   const WHATSAPP_FOOTER_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_FOOTER_MSG)}`;
