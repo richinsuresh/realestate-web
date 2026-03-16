@@ -11,6 +11,7 @@ import {
   AspectRatio,
   Link as ChakraLink,
   HStack,
+  VStack,
 } from "@chakra-ui/react";
 import ImageWithSkeleton from "@/components/ImageWithSkeleton";
 
@@ -47,7 +48,7 @@ function isAbsoluteOrLocal(s?: string | null) {
   if (!s) return false;
   const t = s.trim();
   if (!t) return false;
-  if (t.startsWith("/")) return true; // local / static
+  if (t.startsWith("/")) return true; 
   try {
     const u = new URL(t);
     return u.protocol === "http:" || u.protocol === "https:";
@@ -56,44 +57,36 @@ function isAbsoluteOrLocal(s?: string | null) {
   }
 }
 
-// Build public URL from storage key (ONLY works if bucket is public)
 function buildSupabasePublicUrl(keyOrUrl?: string | null) {
   if (!keyOrUrl) return null;
   const trimmed = keyOrUrl.trim();
-  if (isAbsoluteOrLocal(trimmed)) return trimmed; // already usable
+  if (isAbsoluteOrLocal(trimmed)) return trimmed;
 
   const bucket = (() => {
-       const _b = process.env.NEXT_PUBLIC_SUPABASE_BUCKET;
-       if (!_b) {
-         throw new Error("[config] Missing NEXT_PUBLIC_SUPABASE_BUCKET env. Add it to .env.local and restart.");
-       }
-       return _b;
-     })();
+    const _b = process.env.NEXT_PUBLIC_SUPABASE_BUCKET;
+    if (!_b) {
+      throw new Error("[config] Missing NEXT_PUBLIC_SUPABASE_BUCKET env.");
+    }
+    return _b;
+  })();
+  
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  if (!projectUrl) return trimmed; // fallback — but may break
+  if (!projectUrl) return trimmed;
 
-  // If stored value already contains bucket prefix, strip it
   let path = trimmed;
   if (trimmed.startsWith(`${bucket}/`)) {
     path = trimmed.slice(bucket.length + 1);
   }
 
   const normalizedProject = projectUrl.replace(/\/$/, "");
-  return `${normalizedProject}/storage/v1/object/public/${bucket}/${encodeURI(
-    path
-  )}`;
+  return `${normalizedProject}/storage/v1/object/public/${bucket}/${encodeURI(path)}`;
 }
 
 // ----------------- COMPONENT -----------------
 
-/**
- * PropertyCard: displays a real estate property card.
- * Works with both `property={...}` or individual props.
- */
 export default function PropertyCard(props: Props) {
   const { property } = props;
 
-  // Prefer `property.*` if passed, otherwise fall back to individual props
   const id = property?.id ?? props.id ?? "";
   const title = property?.title ?? props.title ?? "Untitled property";
   const tagline = property?.tagline ?? props.tagline;
@@ -102,7 +95,6 @@ export default function PropertyCard(props: Props) {
   const type = property?.type ?? props.type;
   const bedrooms = property?.bedrooms ?? props.bedrooms;
 
-  // Image selection (main image or fallback)
   const rawImage =
     property?.imageUrl ||
     (Array.isArray(property?.images) && property.images.length > 0
@@ -110,7 +102,6 @@ export default function PropertyCard(props: Props) {
       : props.imageUrl) ||
     "/placeholder.jpg";
 
-  // Convert storage key → public URL
   const imageUrl = buildSupabasePublicUrl(rawImage) ?? "/placeholder.jpg";
 
   return (
@@ -123,7 +114,7 @@ export default function PropertyCard(props: Props) {
       transition="all 0.2s"
       bg="white"
     >
-      {/* Image */}
+      {/* Image Section */}
       <AspectRatio ratio={4 / 3}>
         <Box position="relative" width="100%" height="100%" bg="gray.100">
           <ImageWithSkeleton
@@ -136,39 +127,36 @@ export default function PropertyCard(props: Props) {
         </Box>
       </AspectRatio>
 
-      {/* Content */}
+      {/* Content Section */}
       <Box p={5}>
-        <Stack spacing={3}>
-          {/* Title */}
-          <Heading size="md" noOfLines={2}>
+        {/* Changed 'spacing' to 'gap' for Chakra v3 compatibility */}
+        <Stack gap={3}>
+          <Heading size="md" lineClamp={2}>
             {title}
           </Heading>
 
-          {/* Tagline */}
-          <Text color="gray.600" fontSize="sm" noOfLines={2}>
+          <Text color="gray.600" fontSize="sm" lineClamp={2}>
             {tagline ?? "No tagline available"}
           </Text>
 
-          {/* Price */}
           <Text fontWeight="bold" fontSize="lg" color="black">
             {typeof price === "number"
               ? `₹${price.toLocaleString("en-IN")}`
               : "Price on request"}
           </Text>
 
-          {/* Location / Type / Bedrooms */}
-          <Stack spacing={1} fontSize="sm" color="gray.600">
+          <Stack gap={1} fontSize="sm" color="gray.600">
             {location && <Text>{location}</Text>}
-            <HStack spacing={2}>
+            <HStack gap={2}>
               {type && <Text>{type}</Text>}
               {bedrooms ? <Text>{bedrooms} BHK</Text> : null}
             </HStack>
           </Stack>
 
-          {/* CTA */}
           <NextLink href={`/listings/${id}`} passHref legacyBehavior>
             <ChakraLink width="100%" aria-label={`View ${title}`}>
-              <Button colorScheme="teal" width="100%">
+              {/* In v3, colorScheme is often replaced by colorPalette depending on your theme */}
+              <Button colorPalette="teal" width="100%">
                 View
               </Button>
             </ChakraLink>
