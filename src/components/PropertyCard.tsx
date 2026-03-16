@@ -11,6 +11,7 @@ import {
   AspectRatio,
   Link as ChakraLink,
   HStack,
+  VStack, // Added VStack import
 } from "@chakra-ui/react";
 import ImageWithSkeleton from "@/components/ImageWithSkeleton";
 
@@ -128,42 +129,40 @@ export default function PropertyCard(props: Props) {
 
       {/* Content Section */}
       <Box p={5}>
-        <Stack gap={3}>
-          {/* Title - using noOfLines for truncation */}
-          <Heading size="md" noOfLines={2}>
-            {title}
-          </Heading>
+        {/* Important: Replaced all 'spacing' with 'gap' for compatibility */}
+        <VStack align="stretch" gap={4} flex="1">
+          <Stack gap={3}>
+            <Heading size="md" noOfLines={2}>
+              {title}
+            </Heading>
 
-          {/* Tagline */}
-          <Text color="gray.600" fontSize="sm" noOfLines={2}>
-            {tagline ?? "No tagline available"}
-          </Text>
+            <Text color="gray.600" fontSize="sm" noOfLines={2}>
+              {tagline ?? "No tagline available"}
+            </Text>
 
-          {/* Price */}
-          <Text fontWeight="bold" fontSize="lg" color="black">
-            {typeof price === "number"
-              ? `₹${price.toLocaleString("en-IN")}`
-              : "Price on request"}
-          </Text>
+            <Text fontWeight="bold" fontSize="lg" color="black">
+              {typeof price === "number"
+                ? `₹${price.toLocaleString("en-IN")}`
+                : "Price on request"}
+            </Text>
 
-          {/* Details - using gap for spacing */}
-          <Stack gap={1} fontSize="sm" color="gray.600">
-            {location && <Text>{location}</Text>}
-            <HStack gap={2}>
-              {type && <Text>{type}</Text>}
-              {bedrooms ? <Text>{bedrooms} BHK</Text> : null}
-            </HStack>
+            <Stack gap={1} fontSize="sm" color="gray.600">
+              {location && <Text>{location}</Text>}
+              <HStack gap={2}>
+                {type && <Text>{type}</Text>}
+                {bedrooms ? <Text>{bedrooms} BHK</Text> : null}
+              </HStack>
+            </Stack>
+
+            <NextLink href={`/listings/${id}`} passHref legacyBehavior>
+              <ChakraLink width="100%" aria-label={`View ${title}`}>
+                <Button colorScheme="teal" width="100%">
+                  View
+                </Button>
+              </ChakraLink>
+            </NextLink>
           </Stack>
-
-          {/* CTA - using colorScheme for the button */}
-          <NextLink href={`/listings/${id}`} passHref legacyBehavior>
-            <ChakraLink width="100%" aria-label={`View ${title}`}>
-              <Button colorScheme="teal" width="100%">
-                View
-              </Button>
-            </ChakraLink>
-          </NextLink>
-        </Stack>
+        </VStack>
       </Box>
     </Box>
   );
