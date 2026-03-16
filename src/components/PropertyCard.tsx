@@ -11,7 +11,6 @@ import {
   AspectRatio,
   Link as ChakraLink,
   HStack,
-  VStack,
 } from "@chakra-ui/react";
 import ImageWithSkeleton from "@/components/ImageWithSkeleton";
 
@@ -65,7 +64,7 @@ function buildSupabasePublicUrl(keyOrUrl?: string | null) {
   const bucket = (() => {
     const _b = process.env.NEXT_PUBLIC_SUPABASE_BUCKET;
     if (!_b) {
-      throw new Error("[config] Missing NEXT_PUBLIC_SUPABASE_BUCKET env.");
+      throw new Error("[config] Missing NEXT_PUBLIC_SUPABASE_BUCKET env. Add it to .env.local and restart.");
     }
     return _b;
   })();
@@ -129,22 +128,25 @@ export default function PropertyCard(props: Props) {
 
       {/* Content Section */}
       <Box p={5}>
-        {/* Changed 'spacing' to 'gap' for Chakra v3 compatibility */}
         <Stack gap={3}>
-          <Heading size="md" lineClamp={2}>
+          {/* Title - using noOfLines for truncation */}
+          <Heading size="md" noOfLines={2}>
             {title}
           </Heading>
 
-          <Text color="gray.600" fontSize="sm" lineClamp={2}>
+          {/* Tagline */}
+          <Text color="gray.600" fontSize="sm" noOfLines={2}>
             {tagline ?? "No tagline available"}
           </Text>
 
+          {/* Price */}
           <Text fontWeight="bold" fontSize="lg" color="black">
             {typeof price === "number"
               ? `₹${price.toLocaleString("en-IN")}`
               : "Price on request"}
           </Text>
 
+          {/* Details - using gap for spacing */}
           <Stack gap={1} fontSize="sm" color="gray.600">
             {location && <Text>{location}</Text>}
             <HStack gap={2}>
@@ -153,10 +155,10 @@ export default function PropertyCard(props: Props) {
             </HStack>
           </Stack>
 
+          {/* CTA - using colorScheme for the button */}
           <NextLink href={`/listings/${id}`} passHref legacyBehavior>
             <ChakraLink width="100%" aria-label={`View ${title}`}>
-              {/* In v3, colorScheme is often replaced by colorPalette depending on your theme */}
-              <Button colorPalette="teal" width="100%">
+              <Button colorScheme="teal" width="100%">
                 View
               </Button>
             </ChakraLink>
